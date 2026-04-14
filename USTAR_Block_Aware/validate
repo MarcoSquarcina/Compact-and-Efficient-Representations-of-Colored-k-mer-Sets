@@ -1,0 +1,58 @@
+#!/bin/bash
+
+set -e
+
+# path for jellyfish
+PATH="/home/enrico/bio-bin/:$PATH"
+
+DEBUG=1
+
+help(){
+   # Display Help
+   echo "Verify equivalence between kmers (multi) sets"
+   echo "Syntax: ./$(basename "$0") <kmer_size> <original-sequence> <ustar-kmers-sorted>"
+   echo
+}
+
+validate(){
+  if [ ! -f "$orig_sequence" ]; then
+    echo "The file '$orig_sequence' does not exist."
+    exit
+  fi
+  if [ ! -f "$ustar_kmers" ]; then
+    echo "The file '$ustar_kmers' does not exist."
+    exit
+  fi
+
+  basename_orig_sequence=$(basename "$orig_sequence")
+  orig_sequence_kmers="${basename_orig_sequence}.txt"
+  sequence_kmers_sorted="${orig_sequence_kmers}.sorted"
+
+  echo "Computing kmers set of $basename_orig_sequence..."
+  jellyfish-linux count -m "$k" -C -s 100M -L 2 "$orig_sequence"
+  jellyfish-linux dump -c mer_counts.jf > "${orig_sequence_kmers}"
+
+  # test kmers and counts
+  echo "Sorting kmers set..."
+  sort "${orig_sequence_kmers}" -o "${sequence_kmers_sorted}"
+
+  if cmp "${sequence_kmers_sorted}" "${ustar_kmers}"; then
+    echo '### SUCCESS: The two files contain same k-mers and counts! ###'
+  else
+    echo '### ERROR: Files contain different k-mers or counts! ###'
+  fi
+
+  rm -f mer_counts.jf
+  rm -f "${orig_sequence_kmers}"
+  if [[ DEBUG -eq 0 ]];  then
+    rm -f "${sequence_kmers_sorted}" "${ustar_kmers}"
+  fi
+}
+
+help
+
+k=${1:-31}
+orig_sequence=${2:-"/home/enrico/CLionProjects/UST/SRR/SRR001665/SRR001665_1.fasta"}
+ustar_kmers=${3:-"/home/enrico/USTAR/cmake-build-debug/ustar-kmers.txt"}
+
+validate
